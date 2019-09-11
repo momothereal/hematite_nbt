@@ -23,6 +23,16 @@ where for <'de> T: serde::Serialize + serde::Deserialize<'de> + PartialEq + std:
     assert_eq!(read, nbt);
 }
 
+/// Helper function that serializes and then deserializes the given value.
+fn try_ser<T>(nbt: T, name: Option<&str>)
+    where for <'de> T: serde::Serialize + serde::Deserialize<'de> + PartialEq + std::fmt::Debug
+{
+    let mut dst = Vec::new();
+
+    nbt::ser::to_writer(&mut dst, &nbt, name).expect("NBT serialization.");
+    let _read: T = nbt::de::from_reader(&dst[..]).expect("NBT deserialization.");
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct ByteNbt {
     data: i8,
@@ -306,6 +316,46 @@ fn roundtrip_bool() {
     ];
 
     assert_roundtrip_eq(nbt, &bytes, None);
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+struct StringVariant {
+    data: String,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+struct BoolVariant {
+    data: bool,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "variant")]
+enum InternalVariants {
+    String(StringVariant),
+    Bool(BoolVariant),
+    #[serde(other)]
+    Unknown,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+struct NestedInternalVariant {
+    data: InternalVariants,
+}
+
+#[test]
+fn internal_variant_string() {
+    let nbt = NestedInternalVariant {
+        data: InternalVariants::String(StringVariant { data: String::from("test") })
+    };
+    try_ser(nbt, None);
+}
+
+#[test]
+fn internal_variant_bool() {
+    let nbt = NestedInternalVariant {
+        data: InternalVariants::Bool(BoolVariant { data: true })
+    };
+    try_ser(nbt, None);
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
